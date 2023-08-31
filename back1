@@ -1,0 +1,641 @@
+// Employee.java
+
+package com.scb.bank.entities;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
+import javax.persistence.Table;
+
+@Entity
+@Table(name="employee")
+public class Employee {
+	
+//	declaring variables for the class.
+
+	@Id
+	@Column(name="ID")
+	private int employeeId;
+	
+	@Column(name="Name")
+	private String employeeName;
+	
+	@Column(name="Email_ID")
+	private String employeeMail;
+	
+	@Column(name="Department")
+	private String employeeDepartment;
+
+	
+	@ManyToMany(fetch = FetchType.LAZY,
+		      cascade = {
+		          CascadeType.PERSIST,
+		          CascadeType.MERGE
+		      })
+		  @JoinTable(name = "employee_group",
+		        joinColumns = { @JoinColumn(name = "employee_id") },
+		        inverseJoinColumns = { @JoinColumn(name = "group_id") })
+		  private Set<Group> groups = new HashSet<>();
+
+	public Employee() {
+
+	  }
+
+	  public Employee(int employeeId,String employeeName,String employeeMail,String employeeDepartment) {
+	    this.employeeId = employeeId;
+	    this.employeeName = employeeName;
+	    this.employeeMail = employeeMail;
+	    this.employeeDepartment = employeeDepartment;
+	  }
+		
+	public int getEmployeeId() {
+		return employeeId;
+	}
+
+	public void setEmployeeId(int employeeId) {
+		this.employeeId = employeeId;
+	}
+
+	public String getEmployeeName() {
+		return employeeName;
+	}
+
+	public void setEmployeeName(String employeeName) {
+		this.employeeName = employeeName;
+	}
+
+	public String getEmployeeMail() {
+		return employeeMail;
+	}
+
+	public void setEmployeeMail(String employeeMail) {
+		this.employeeMail = employeeMail;
+	}
+
+	public String getEmployeeDepartment() {
+		return employeeDepartment;
+	}
+
+	public void setEmployeeDepartment(String employeeDepartment) {
+		this.employeeDepartment = employeeDepartment;
+	}
+
+	
+	
+	public Set<Group> getGroups() {
+		return groups;
+	}
+
+	public void setGroups(Set<Group> groups) {
+		this.groups = groups;
+	}
+
+	public void addGroup(Group group) {
+	    this.groups.add(group);
+	    group.getEmployees().add(this);
+	  }
+	  
+	  public void removeGroup(int groupId) {
+	    Group group = this.groups.stream().filter(t -> t.getGroupId() == groupId).findFirst().orElse(null);
+	    if (group != null) {
+	      this.groups.remove(group);
+	      group.getEmployees().remove(this);
+	    }
+	  }
+	
+	
+}
+
+
+//Group.java
+
+package com.scb.bank.entities;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.Id;
+import javax.persistence.ManyToMany;
+import javax.persistence.Table;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+@Entity
+@Table(name="grouplist")
+public class Group {
+	
+	@Id
+	@Column(name="ID")
+//	@GeneratedValue
+	private int groupId;
+	
+	@Column(name="Name")
+	private String groupName;
+	
+	@Column(name="Email_ID")
+	private String groupEmailId;
+
+	@ManyToMany(fetch = FetchType.LAZY,
+		      cascade = {
+		          CascadeType.PERSIST,
+		          CascadeType.MERGE
+		      },
+		      mappedBy = "groups")
+		  @JsonIgnore
+		  private Set<Employee> employees = new HashSet<>();
+
+	public Group() {
+
+	  }
+	
+	public int getGroupId() {
+		return groupId;
+	}
+
+	public void setGroupId(int groupId) {
+		this.groupId = groupId;
+	}
+
+	public String getGroupName() {
+		return groupName;
+	}
+
+	public void setGroupName(String groupName) {
+		this.groupName = groupName;
+	}
+
+	public String getGroupEmailId() {
+		return groupEmailId;
+	}
+
+	public void setGroupEmailId(String groupEmailId) {
+		this.groupEmailId = groupEmailId;
+	}
+
+	public Set<Employee> getEmployees() {
+		return employees;
+	}
+
+	public void setEmployees(Set<Employee> employees) {
+		this.employees = employees;
+	}
+	
+	
+}
+
+
+
+// EmployeeController.java
+
+package com.scb.bank.controller;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.scb.bank.entities.Employee;
+import com.scb.bank.entities.ResponseMessage;
+import com.scb.bank.exception.CustomerException;
+import com.scb.bank.service.IEmployeeService;
+
+
+@RestController
+public class EmployeeController {
+	@Autowired
+	private IEmployeeService service;
+	
+	
+	public EmployeeController() {
+		System.out.println("Inside Employee Controller");
+	}
+	
+//	@RequestMapping(method=RequestMethod.POST,path="/addemployeefromgroup")
+//	public ResponseEntity<ResponseMessage> addEmployeeFromGroup(){
+//		ResponseEntity<ResponseMessage> re=new ResponseEntity<>
+//	}
+	
+	@RequestMapping(method= RequestMethod.GET, path="/getemployees")
+	public ResponseEntity<List<Employee>> getEmployees() throws CustomerException{
+		ResponseEntity<List<Employee>> re= null;
+		re = new ResponseEntity<List<Employee>>(service.getEmployees(),HttpStatus.OK);
+		return re;
+	}
+	
+	@RequestMapping(method=RequestMethod.POST,path="/addemployee")
+	public ResponseEntity<ResponseMessage> addEmployee(@RequestBody Employee c){
+//		System.out.println(c);
+		ResponseEntity<ResponseMessage> re=null;
+		re=new ResponseEntity<ResponseMessage>(service.addEmployee(c),HttpStatus.OK);
+		return re;
+	}
+	
+	@RequestMapping(method= RequestMethod.GET, path="/getemployee/{id}")
+	public ResponseEntity<Employee> getEmployeeById(@PathVariable int id) throws CustomerException {
+//		System.out.println(id);
+		ResponseEntity<Employee> re= null;
+		re = new ResponseEntity<Employee>(service.getEmployeeById(id),HttpStatus.OK);
+		return re;
+	}
+	
+	@RequestMapping(method= RequestMethod.PUT, path="/updateemployee")
+	public ResponseEntity<Employee> updateEmployeeById(@RequestBody Employee c) throws CustomerException {
+		ResponseEntity<Employee> re= null;
+		re = new ResponseEntity<Employee>(service.updateEmployeeById(c),HttpStatus.OK);
+		return re;
+	}
+	
+	@RequestMapping(method= RequestMethod.DELETE, path="/deleteemployee/{id}")
+	public ResponseEntity<ResponseMessage> deleteEmployeeById(@PathVariable int id) throws CustomerException{
+		ResponseEntity<ResponseMessage> re=null;
+		re=new ResponseEntity<ResponseMessage>(service.deleteEmployeeById(id),HttpStatus.OK);
+		return re;
+	}
+	
+	@ExceptionHandler
+	public ResponseEntity<ResponseMessage> handlingCustomerException(CustomerException ce){
+		ResponseEntity<ResponseMessage> re = null;
+		ResponseMessage rm = new ResponseMessage(null);
+		rm.setMessage(ce.getMessage());
+		re = new ResponseEntity<ResponseMessage>(rm,HttpStatus.NOT_FOUND);
+		return re;
+	}
+	
+}
+
+
+
+
+//GroupController
+
+package com.scb.bank.controller;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.scb.bank.dao.IEmployeeDAO;
+import com.scb.bank.dao.IGroupDAO;
+import com.scb.bank.entities.Employee;
+import com.scb.bank.entities.Group;
+import com.scb.bank.entities.ResponseMessage;
+import com.scb.bank.exception.CustomerException;
+import com.scb.bank.service.IEmployeeService;
+import com.scb.bank.service.IGroupService;
+
+@RestController
+@CrossOrigin("http://localhost:3000")
+public class GroupController {
+	
+	@Autowired
+	private IGroupService service;
+	
+	@Autowired
+	private IEmployeeService empservice;
+	
+	@Autowired
+	private IGroupDAO grpdao;
+	
+	@Autowired
+	private IEmployeeDAO empdao;
+	
+	public GroupController() {
+		System.out.println("Inside Group Controller!");
+	}
+	
+	@RequestMapping(method=RequestMethod.GET,path="/getgroups")
+	public ResponseEntity<List<Group>> getGroups(){
+		ResponseEntity<List<Group>> re= null;
+		re = new ResponseEntity<List<Group>>(service.getGroups(),HttpStatus.OK);
+		return re;
+	}
+	
+	@RequestMapping(method=RequestMethod.GET,path="/getgroupbyid/{id}")
+	public ResponseEntity<Group> getGroupbyId(@PathVariable int id) throws CustomerException{
+		ResponseEntity<Group> re= null;
+		re = new ResponseEntity<Group>(service.getGroupbyId(id),HttpStatus.OK);
+		return re;
+	}
+	
+	
+	@RequestMapping(method=RequestMethod.POST,path="/addgroup")
+	public ResponseEntity<ResponseMessage> addGroup(@RequestBody Group g) throws CustomerException{
+		ResponseEntity<ResponseMessage> re=null;
+		re=new ResponseEntity<ResponseMessage>(service.addGroup(g),HttpStatus.OK);
+		return re;
+	}
+	
+	@RequestMapping(method=RequestMethod.PUT,path="/editgroup")
+	public ResponseEntity<ResponseMessage> editGroup(@RequestBody Group g) throws CustomerException{
+		ResponseEntity<ResponseMessage> re=null;
+		re=new ResponseEntity<ResponseMessage>(service.editGroup(g),HttpStatus.OK);
+		return re;
+	}
+	
+	@RequestMapping(method=RequestMethod.DELETE,path="/deletegroup/{id}")
+	public ResponseEntity<ResponseMessage> deleteGroup(@PathVariable int id) throws CustomerException{
+		ResponseEntity<ResponseMessage> re=null;
+		re=new ResponseEntity<ResponseMessage>(service.deleteGroup(id),HttpStatus.OK);
+		return re;
+		
+	}
+	
+	
+	@GetMapping("/employees/{employeeId}/groups")
+	  public ResponseEntity<List<Group>> getAllGroupsByEmployeeId(@PathVariable(value = "employeeId") int employeeId) throws CustomerException {
+	    if (!empdao.existsById(employeeId)) {
+	      throw new CustomerException("Not found Employee with id = " + employeeId);
+	    }
+
+	    List<Group> groups = grpdao.findGroupsByEmployeeId(employeeId);
+	    return new ResponseEntity<>(groups, HttpStatus.OK);
+	  }
+
+	@GetMapping("/groups/{groupId}/employees")
+	  public ResponseEntity<List<Employee>> getAllEmployeesByGroupId(@PathVariable(value = "groupId") int groupId) throws CustomerException {
+	    if (!grpdao.existsById(groupId)) {
+	      throw new CustomerException("Not found Group with id = " + groupId);
+	    }
+
+	    List<Employee> employees = empdao.findEmployeeByGroupId(groupId);
+	    return new ResponseEntity<>(employees, HttpStatus.OK);
+	  }
+	
+	
+	@PostMapping("/employees/{employeeId}/groups")
+	  public ResponseEntity<Group> addGroup(@PathVariable(value = "employeeId") int employeeId, @RequestBody Group groupRequest) throws CustomerException {
+	    Group group = empdao.findById(employeeId).map(employee -> {
+	      int groupId = groupRequest.getGroupId();
+	      
+	      // group is existed
+	      if (groupId != 0) {
+	        Group _group = null;
+			try {
+				_group = grpdao.findById(groupId)
+						.orElseThrow(() -> new CustomerException("Not found group with id = " + groupId));
+			} catch (CustomerException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+	        employee.addGroup(_group);
+	        empdao.save(employee);
+	        return _group;
+	      }
+	      
+	      // add and create new group
+	      employee.addGroup(groupRequest);
+	      return grpdao.save(groupRequest);
+	    }).orElseThrow(() -> new CustomerException("Not found Employee with id = " + employeeId));
+
+	    return new ResponseEntity<>(group, HttpStatus.CREATED);
+	  }
+	
+	
+	@DeleteMapping("/employees/{employeeId}/groups/{groupId}")
+	  public ResponseEntity<HttpStatus> deleteGroupFromEmployee(@PathVariable(value = "employeeId") int employeeId, @PathVariable(value = "groupId") int groupId) throws CustomerException {
+	    Employee employee = empdao.findById(employeeId)
+	        .orElseThrow(() -> new CustomerException("Not found Employee with id = " + employeeId));
+	    
+	    employee.removeGroup(groupId);
+	    empdao.save(employee);
+	    
+	    return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+	  }
+	
+	
+	@ExceptionHandler
+	public ResponseEntity<ResponseMessage> handlingCustomerException(CustomerException ce){
+		ResponseEntity<ResponseMessage> re = null;
+		ResponseMessage rm = new ResponseMessage(null);
+		rm.setMessage(ce.getMessage());
+		re = new ResponseEntity<ResponseMessage>(rm,HttpStatus.NOT_FOUND);
+		return re;
+	}
+	
+}
+
+
+
+
+// Group Service
+
+package com.scb.bank.service;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.scb.bank.dao.IGroupDAO;
+import com.scb.bank.entities.Group;
+import com.scb.bank.entities.ResponseMessage;
+import com.scb.bank.exception.CustomerException;
+
+@Service
+public class GroupServiceImpl implements IGroupService{
+	
+	@Autowired
+	private IGroupDAO dao;
+	
+	public GroupServiceImpl() {
+		System.out.println("Inside Group Service!!");
+	}
+	
+	@Override
+	public List<Group> getGroups(){
+		return dao.findAll();
+	}
+
+	@Override
+	public ResponseMessage addGroup(Group g) throws CustomerException {
+		ResponseMessage re=new ResponseMessage(null);
+		if(dao.existsById(g.getGroupId())) {
+			throw new CustomerException("Group already exists");
+		}
+		else {
+			dao.save(g);
+			re.setMessage("Group successfully added!");
+			return re;
+		}
+	}
+
+	@Override
+	public ResponseMessage editGroup(Group g) throws CustomerException{
+		ResponseMessage re=new ResponseMessage(null);
+		if(dao.existsById(g.getGroupId())) {
+			dao.save(g);
+			re.setMessage("Edit Successful!!");
+			return re;
+		}
+		else
+			throw new CustomerException("Did not find the group Id");
+	}
+
+	@Override
+	public ResponseMessage deleteGroup(int id) throws CustomerException {
+		ResponseMessage re=new ResponseMessage(null);
+		if(dao.existsById(id)) {
+			dao.deleteById(id);
+			re.setMessage("Deleted!!");
+			return re;
+		}
+		else
+			throw new CustomerException("Did not find the group Id");
+	}
+
+	@Override
+	public Group getGroupbyId(int id) throws CustomerException {
+		if(dao.existsById(id)) {
+			return dao.findById(id).get();
+		}
+		else
+			throw new CustomerException("Did not find the group Id");
+	}
+	
+}
+
+
+
+//EmployeeService
+
+package com.scb.bank.service;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.scb.bank.dao.IEmployeeDAO;
+import com.scb.bank.entities.Employee;
+import com.scb.bank.entities.ResponseMessage;
+import com.scb.bank.exception.CustomerException;
+import org.springframework.web.bind.annotation.*;
+
+@Service
+public class EmployeeServiceImpl implements IEmployeeService{
+	@Autowired
+	private IEmployeeDAO dao;
+	
+	public EmployeeServiceImpl() {
+		System.out.println("Inside employee service");
+	}
+
+	@Override
+	public List<Employee> getEmployees() {
+		return dao.findAll();
+	}
+	
+	@Override
+	public Employee getEmployeeById(int id) throws CustomerException{
+		if(dao.existsById(id))
+            return dao.findById(id).get();
+		else
+        throw new CustomerException("Employee id is not available");
+	}
+	
+	@Override
+	public Employee updateEmployeeById(Employee e) throws CustomerException{
+		if(dao.existsById(e.getEmployeeId()))
+            return dao.save(e);
+        else
+            throw new CustomerException("Employee id is not available");
+	}
+	
+	@Override
+	public ResponseMessage addEmployee(Employee e) {
+		dao.saveAndFlush(e);
+		ResponseMessage re=new ResponseMessage(null);
+		re.setMessage("Addition succesful");
+		return re;
+	}
+	
+	@Override
+	public ResponseMessage deleteEmployeeById(int id) throws CustomerException {
+		ResponseMessage re=new ResponseMessage(null);
+		if(dao.existsById(id)) {
+			if(dao.existsById(id)) {
+				dao.deleteById(id);
+				re.setMessage("Deleted Employee Successfully!");
+				return re;
+			}
+			else 
+				throw new CustomerException("Unable to delete!");
+			
+		}
+		re.setMessage("No user with the given id");
+		return re;
+			
+	}
+	
+	
+}
+
+
+
+
+
+
+//group repository
+
+package com.scb.bank.dao;
+
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import com.scb.bank.entities.Group;
+
+@Repository
+public interface IGroupDAO extends JpaRepository<Group,Integer>{
+	List<Group> findGroupsByEmployeeId(int employeeId);
+}
+
+
+//employee repository
+
+package com.scb.bank.dao;
+
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import com.scb.bank.entities.Employee;
+
+@Repository
+public interface IEmployeeDAO extends JpaRepository<Employee, Integer>{
+	List<Employee> findEmployeeByGroupId(int groupId);
+}
